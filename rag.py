@@ -37,6 +37,20 @@ def initialize_components():
                 "normalize_embeddings": True
             }
         )
+        # Test embedding model
+        test_embedding = embeddings.embed_query(
+            "real estate property"
+        )
+
+        print(
+            "Embedding dimension:",
+            len(test_embedding)
+        )
+
+        if not test_embedding:
+            raise ValueError(
+                "Embedding model returned an empty embedding."
+            )
 
         vectordb = Chroma(
             collection_name=COLLECTION_NAME,
