@@ -28,11 +28,20 @@ def initialize_components():
         )
 
     if vectordb is None:
-        embeddings = HuggingFaceEmbeddings(model_name=MODEL)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=MODEL,
+            model_kwargs={
+                "device": "cpu"
+            },
+            encode_kwargs={
+                "normalize_embeddings": True
+            }
+        )
+
         vectordb = Chroma(
-            collection_name= COLLECTION_NAME,
+            collection_name=COLLECTION_NAME,
             persist_directory=VECTOR_DB_DIR,
-            embedding_function= embeddings,
+            embedding_function=embeddings
         )
 
 def process_urls(urls):
