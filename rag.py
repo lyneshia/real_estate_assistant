@@ -1,7 +1,6 @@
 import streamlit as st
 from langchain_groq import ChatGroq
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_unstructured import UnstructuredLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
@@ -28,34 +27,9 @@ def initialize_components():
         )
 
     if vectordb is None:
-        embeddings = HuggingFaceEmbeddings(
-            model_name=MODEL,
-            model_kwargs={
-                "device": "cpu"
-            },
-            encode_kwargs={
-                "normalize_embeddings": True
-            }
-        )
-        # Test embedding model
-        test_embedding = embeddings.embed_query(
-            "real estate property"
-        )
-
-        print(
-            "Embedding dimension:",
-            len(test_embedding)
-        )
-
-        if not test_embedding:
-            raise ValueError(
-                "Embedding model returned an empty embedding."
-            )
-
         vectordb = Chroma(
             collection_name=COLLECTION_NAME,
             persist_directory=VECTOR_DB_DIR,
-            embedding_function=embeddings
         )
 
 def process_urls(urls):
