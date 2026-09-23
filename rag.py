@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+import streamlit as st
 from langchain_groq import ChatGroq
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -19,11 +19,12 @@ CHUNK_SIZE = 1000
 def initialize_components():
     global llm, vectordb
     if llm is None:
-        load_dotenv()
+        api_key = st.secrets["GROQ_API_KEY"]
         llm = ChatGroq(
             model = "openai/gpt-oss-120b",
             temperature=0.3,
-            max_tokens=1024
+            max_tokens=1024,
+            api_key = api_key
         )
 
     if vectordb is None:
