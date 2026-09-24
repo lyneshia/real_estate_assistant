@@ -22,7 +22,6 @@ def initialize_components():
         llm = ChatGroq(
             model = "openai/gpt-oss-120b",
             temperature=0.3,
-            max_tokens=1024,
             api_key = api_key
         )
 
