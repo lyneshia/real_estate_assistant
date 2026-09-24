@@ -61,9 +61,9 @@ def process_urls(urls):
         except Exception as e:
             yield f"Failed to load {u}: {e}"
     if not data:
-    raise ValueError(
-        "No content could be extracted from the provided URLs."
-    )
+        raise ValueError(
+            "No content could be extracted from the provided URLs."
+        )
 
 
     yield "Splitting the data into chunks..."
