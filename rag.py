@@ -40,21 +40,64 @@ def process_urls(urls):
     vectordb.reset_collection()
 
     yield "Extracting the data from the URLs..."
+
     data = []
     for u in urls:
         try:
             loader = UnstructuredLoader(web_url=u)
-            data.extend(loader.load())
+            loaded_docs = loader.load()
+
+            print(f"URL: {u}")
+            print(f"Documents loaded: {len(loaded_docs)}")
+
+            for doc in loaded_docs[:3]:
+                print(
+                    "Content length:",
+                    len(doc.page_content)
+                )
+
+            data.extend(loaded_docs)
+
         except Exception as e:
             yield f"Failed to load {u}: {e}"
+    if not data:
+    raise ValueError(
+        "No content could be extracted from the provided URLs."
+    )
+
 
     yield "Splitting the data into chunks..."
+
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n", ".", " "],
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap= 150
+    separators=["\n\n", "\n", ".", " "],
+    chunk_size=CHUNK_SIZE,
+    chunk_overlap=150
     )
+
     docs = text_splitter.split_documents(data)
+
+
+    if not docs:
+        raise ValueError(
+            "No text chunks were created from the extracted content."
+        )
+
+
+    print("Total source documents:", len(data))
+    print("Total chunks:", len(docs))
+
+
+    yield "Adding the chunks to the Vector database..."
+
+    uuids = [
+        str(uuid4())
+        for _ in range(len(docs))
+        ]
+
+    vectordb.add_documents(
+        documents=docs,
+        ids=uuids
+    )
 
     # Add 'source' metadata for RetrievalQAWithSourcesChain
     for doc in docs:
