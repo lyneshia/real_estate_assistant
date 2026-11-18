@@ -1,32 +1,38 @@
 import sys
+
+# --- Streamlit Cloud ships an old sqlite3; Chroma needs >= 3.35 ----------------
+# Requires `pysqlite3-binary` in requirements.txt. Must run before chroma imports.
 try:
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 except ImportError:
     pass
 
+import os
 import tempfile
 from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
 from langchain_chroma import Chroma
-from langchain_classic.chains.qa_with_sources.retrieval import RetrievalQAWithSourcesChain
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-COLLECTION_NAME = "real_estate"
-# The repo directory can be read-only / wiped on reboot, so using a temp dir.
-VECTOR_DB_DIR = str(Path(tempfile.gettempdir()) / "vectordb")
-MODEL = "BAAI/bge-small-en-v1.5"
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
+os.environ.setdefault("USER_AGENT", USER_AGENT)
+
+COLLECTION_NAME = "real_estate"
+# The repo directory can be read-only / wiped on reboot, so use a temp dir.
+VECTOR_DB_DIR = str(Path(tempfile.gettempdir()) / "vectordb")
+MODEL = "BAAI/bge-small-en-v1.5"
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
 
 
 @st.cache_resource(show_spinner=False)
@@ -104,18 +110,30 @@ def process_urls(urls):
     yield f"Stored {count} chunks. Ready to answer questions."
 
 
+PROMPT = ChatPromptTemplate.from_messages([
+    (
+        "system",
+        "You are a real estate research assistant. Answer the question using ONLY "
+        "the context below, which was extracted from web articles. If the answer is "
+        "not in the context, say you could not find it in the provided articles. "
+        "Do not invent facts.\n\nContext:\n{context}",
+    ),
+    ("human", "{question}"),
+])
+
+
 def generate_answer(query):
     llm, vectordb = get_components()
 
-    # Fail loudly instead of letting the LLM echo the prompt's built-in example
     if vectordb._collection.count() == 0:
         raise RuntimeError("No documents are indexed yet. Please process a URL first.")
 
-    chain = RetrievalQAWithSourcesChain.from_llm(
-        llm=llm,
-        retriever=vectordb.as_retriever(search_kwargs={"k": 5}),
-    )
+    docs = vectordb.as_retriever(search_kwargs={"k": 5}).invoke(query)
+    if not docs:
+        return "I couldn't find anything relevant in the indexed articles.", ""
 
-    result = chain.invoke({"question": query}, return_only_outputs=True)
-    sources = result.get("sources", "")
-    return result["answer"], sources
+    context = "\n\n".join(f"[{i + 1}] {d.page_content}" for i, d in enumerate(docs))
+    response = llm.invoke(PROMPT.format_messages(context=context, question=query))
+
+    sources = "\n".join(dict.fromkeys(d.metadata.get("source", "Unknown") for d in docs))
+    return response.content, sources
